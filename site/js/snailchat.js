@@ -3,6 +3,12 @@
 // and uses the SnailGame class
 // All site specific stuff goes here
 
+// constants
+const MSG_POINT     = 0
+const MSG_SNAIL     = 1
+const MSG_NEW_SNAIL = 2
+const MSG_DED_SNAIL = 3
+
 // Globals
 var canvas = null;
 var ctx = null;
@@ -49,13 +55,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     framefunc(0);
 
-    //TODO
     // request updates from server, spawn
-    // tell the game to connect to the websocket
+    ws = new WebSocket("ws://"+ location.host +"/ws");
+    ws.binaryType = 'arraybuffer';
+    ws.onerror = (err_evt) => {
+        console.log("Error", err_evt);
+        alert("Connection Lost");
+    }
+    ws.onclose = (close_evt) => {
+        console.log("Close", close_evt);
+        alert("Connection Lost");
+    }
+    ws.onopen = (open_evt) => {
+        console.log("Connected");
+        // give the snail game this connection
+        game.addLetterCallback = (inchar, x, y, ang, color) => {
+
+        };
+
+        game.moveSnailCallback = (x, y, ang) => {
+
+        };
+    }
+    ws.onmessage = (msg_evt) => {
+        // parse message, then send it to the snail game
+        let data = msg_evt.data;
+        let dv = new DataView(data);
+        // get message type
+
+        //game.addSnail(id, x, y, ang, color)
+        //game.addChar(inchar, x, y, ang, color)
+        //game.moveSnail(id, x, y, ang)
+        //game.removeSnail(id)
+    }
+
 
     // Accept input
-
-
     document.addEventListener('keydown', (event) => {
         if (event.repeat) {
             return;

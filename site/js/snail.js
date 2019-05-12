@@ -55,13 +55,39 @@ class SnailGame {
         this.dirty = true;
         this.w2 = 0;
         this.h2 = 0;
+
+        this.moveSnailCallback = null;
+        this.addLetterCallback = null;
+    }
+
+    addSnail(id, x, y, ang, color) {
+        this.players.push(new SnailPlayer(id, x, y, ang, color));
+        this.dirty = true;
+    }
+
+    moveSnail(id, x, y, ang) {
+        for (let i=0; i<this.players.length; i++) {
+            if (id === this.players[i].id) {
+                this.players[i].x = x;
+                this.players[i].y = y;
+                this.players[i].ang = ang;
+                this.dirty = true;
+                break;
+            }
+        }
+    }
+
+    removeSnail(id) {
+        // race condition here?
+        this.players = this.players.filter((player) => player.id != id);
+        this.dirty = true;
     }
 
     setCtx() {
         // sets default context stuff
         // should only have to be done at the start, and after a resize
         this.ctx.fillStyle = 'black';
-        this.ctx.strokeStyle = 'black';
+        this.ctx.strokeStyle = 'white';
         this.ctx.font = "21px sans-serif";
         this.ctx.textAlign = "left";
         this.ctx.textBaseline = "middle";
@@ -118,6 +144,9 @@ class SnailGame {
     }
 
     insertCharacter(inchar) {
+        if (this.moveSnailCallback === null || this.addLetterCallback === null) {
+            return false;
+        }
         // if it is a whitespace character, limit it to only one
         if (inchar.length !== 1) {
             return false;
@@ -140,6 +169,7 @@ class SnailGame {
         // ok, add the character
         if (inchar != ' ') {
             this.addChar(inchar, this.user.x, this.user.y, this.user.ang, this.user.color);
+            this.addLetterCallback(inchar, this.user.x, this.user.y, this.user.ang, this.user.color);
         }
         // move forward
         // first step the rotation amount
@@ -150,6 +180,8 @@ class SnailGame {
         let movdst = ctx.measureText(inchar).width;
         this.user.x += movdst * Math.cos(this.user.ang);
         this.user.y += movdst * Math.sin(this.user.ang);
+
+        this.moveSnailCallback(this.user.x, this.user.y, this.user.ang);
 
         this.dirty = true;
 
@@ -219,6 +251,7 @@ class SnailGame {
         ////////////////////////////
         for (let i=0; i<this.data.length; i++) {
             this.setTransform(this.data[i].ang, this.data[i].x, this.data[i].y);
+            ctx.strokeText(this.data[i].c, 0, 0);
             ctx.fillStyle = this.data[i].color;
             ctx.fillText(this.data[i].c, 0, 0);
         }
@@ -237,6 +270,8 @@ class SnailGame {
             Math.sin(this.rotTo - this.user.ang)*len + yoff
         );
         ctx.stroke();
+
+        //TODO draw arrows to snails off the edge of view
 
 
 
