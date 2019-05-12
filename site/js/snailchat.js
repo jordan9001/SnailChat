@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
     framefunc(0);
 
     //TODO
-    // request updates from server
+    // request updates from server, spawn
     // tell the game to connect to the websocket
 
     // Accept input
