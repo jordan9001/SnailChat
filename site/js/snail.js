@@ -16,6 +16,8 @@ class SnailPlayer {
         this.color = color; // as css color value string
         //this.font = font; // as css font value string
         //TODO lerp position between key presses
+        this.img = new Image();
+        this.img.src = '/img/snailSmall.png';
     }
 }
 
@@ -323,7 +325,7 @@ class SnailGame {
             ctx.beginPath();
             let xoff = 10;
             let yoff = -5;
-            let len = 40;
+            let len = 54;
             ctx.moveTo(xoff, yoff);
             ctx.lineTo(
                 Math.cos(this.rotTo - this.user.ang)*len + xoff,
@@ -343,7 +345,9 @@ class SnailGame {
         ////////////////////////////
         for (let i=0; i<this.players.length; i++) {
             this.setTransform(this.players[i].ang, this.players[i].x, this.players[i].y);
-            ctx.fillText(String.fromCodePoint(128012), 0, 0);
+            //ctx.fillText(String.fromCodePoint(128012), 0, 0);
+            let img = this.players[i].img;
+            ctx.drawImage(img, -3, -27);
         }
     }
 }
