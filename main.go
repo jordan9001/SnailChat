@@ -8,11 +8,13 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
 
 const PORT string = ":8160"
+const CHARMAP_STARTSZ = 0x4000
 
 // different messages
 const (
@@ -43,6 +45,7 @@ type MsgPoint struct {
 	Ang   uint16
 	Color uint16
 	Point uint16
+	tstmp time.Time
 }
 
 type MsgSnail struct {
@@ -78,6 +81,8 @@ var snails []*Snail
 var snails_mux = &sync.RWMutex{}
 var msgin chan SnailMsg
 var idcounter uint16 = 1
+var charmap []*MsgPoint
+var charmap_mux = &sync.RWMutex{}
 
 func (m MsgPoint) Pack() []byte {
 	b := make([]byte, MSG_POINT_SZ)
@@ -138,6 +143,7 @@ func Unpack(p []byte, id uint16) (SnailMsg, error) {
 		msgp.Ang = binary.LittleEndian.Uint16(p[5:])
 		msgp.Color = binary.LittleEndian.Uint16(p[7:])
 		msgp.Point = binary.LittleEndian.Uint16(p[9:])
+		msgp.tstmp = time.Now()
 		s = msgp
 	case MSG_SNAIL:
 		msgs := MsgSnail{}
@@ -169,6 +175,7 @@ func main() {
 	// set up the Globals
 	snails = make([]*Snail, 0, 8)
 	msgin = make(chan SnailMsg)
+	charmap = make([]*MsgPoint, 0, CHARMAP_STARTSZ)
 
 	if len(os.Args) > 1 {
 		sitepath = os.Args[1]
@@ -177,6 +184,7 @@ func main() {
 	// start the distributor
 	// If need better traffic? Can have multiple going
 	go distributor()
+	go charMapCleanup()
 
 	http.HandleFunc("/ws", wsConnection)
 	http.Handle("/", http.FileServer(http.Dir(sitepath)))
@@ -206,6 +214,9 @@ func distributor() {
 				}
 			}
 			snails_mux.RUnlock()
+			charmap_mux.Lock()
+			charmap = append(charmap, &v)
+			charmap_mux.Unlock()
 		case MsgSnail:
 			// Snail moved, log it and send it out to all the clients
 			msgbuf := v.Pack()
@@ -214,6 +225,11 @@ func distributor() {
 				// don't send back to originator
 				if c.Id != v.Id {
 					c.out <- msgbuf
+				} else {
+					// but do update their position
+					c.X = v.X
+					c.Y = v.Y
+					c.Ang = v.Ang
 				}
 			}
 			snails_mux.RUnlock()
@@ -353,17 +369,69 @@ func wsConnection(w http.ResponseWriter, r *http.Request) {
 func catchUp(c *Snail) {
 	// first send them all the snail info
 	snails_mux.RLock()
+	// only do this if we are still in the map
+	inlist := false
+	for i := len(snails) - 1; i >= 0; i-- {
+		if c == snails[i] {
+			inlist = true
+			break
+		}
+	}
+	if !inlist {
+		log.Printf("Trying to catch up a snail that is already gone\n")
+		snails_mux.RUnlock()
+		return
+	}
 	for _, sn := range snails {
 		newsnailmsg := MsgNewSnail{sn.Id, sn.X, sn.Y, sn.Ang, sn.Color}
-		if sn.Id == c.Id {
+		if sn == c {
 			newsnailmsg.Id = 0
 		}
 		c.out <- newsnailmsg.Pack()
 	}
 	snails_mux.RUnlock()
 
-	// TODO
+	seensince := time.Now()
+	foundnotsent := false
+
 	// Send previously sent letters, maybe with some delay
+	for {
+		charmap_mux.RLock()
+		// go through the list backwards, until we find one we haven't seensince
+		// might miss a few in the gaps, oh well
+		foundnotsent = false
+		for i := len(charmap) - 1; i >= 0; i-- {
+			if charmap[i].tstmp.Before(seensince) {
+				foundnotsent = true
+				seensince = charmap[i].tstmp
+				// only send if we are still in the mux
+				snails_mux.RLock()
+
+				inlist := false
+				for i := len(snails) - 1; i >= 0; i-- {
+					if c == snails[i] {
+						inlist = true
+						break
+					}
+				}
+				if !inlist {
+					log.Printf("Trying to catch up a snail that is already gone\n")
+					snails_mux.RUnlock()
+					charmap_mux.RUnlock()
+					return
+				}
+				c.out <- charmap[i].Pack()
+
+				snails_mux.RUnlock()
+				break
+			}
+		}
+		charmap_mux.RUnlock()
+		if !foundnotsent {
+			break
+		}
+		time.Sleep(time.Millisecond * 15)
+	}
 }
 
 func NewSpawn(c *Snail) error {
@@ -373,5 +441,11 @@ func NewSpawn(c *Snail) error {
 	c.X = 0
 	c.Y = 0
 	c.Ang = uint16(rand.Intn(360))
+	// random 16 bit color with no high bits set
+	c.Color = uint16((rand.Intn(0xf) << 11) | (rand.Intn(0x1f) << 5) | (rand.Intn(0xf)))
 	return nil
+}
+
+func charMapCleanup() {
+	//TODO dry up old paths when we hit a limit
 }

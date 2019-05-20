@@ -82,6 +82,8 @@ class SnailGame {
                 break;
             }
         }
+
+        this.dirty = true;
     }
 
     removeSnail(id) {
@@ -90,6 +92,8 @@ class SnailGame {
         this.dirty = true;
 
         console.log("Removed snail", id);
+
+        this.dirty = true;
     }
 
     setCtx() {
@@ -152,6 +156,8 @@ class SnailGame {
             ang: ang, 
             color: color
         });
+
+        this.dirty = true;
     }
 
     insertCharacter(inchar) {
@@ -185,6 +191,7 @@ class SnailGame {
             this.addChar(inchar, this.user.x, this.user.y, this.user.ang, this.user.color);
             this.addLetterCallback(inchar, this.user.x, this.user.y, this.user.ang, this.user.color);
         }
+
         // move forward
         // first step the rotation amount
         this.rotateStep();
@@ -205,28 +212,44 @@ class SnailGame {
             this.user.y += 0x10000;
         }
 
+        this.dirty = true;
+
         this.moveSnailCallback(this.user.x, this.user.y, this.user.ang);
 
         console.log(this.user.x,this.user.y);
-
-        this.dirty = true;
 
         return true;
     }
 
     setTransform(ang, posx, posy) {
         let userang = 0;
+        let userx = 0;
+        let usery = 0;
         if (this.user !== null) {
             userang = this.user.ang;
+            userx = this.user.x;
+            usery = this.user.y;
         }
 
         // Wrap around x and y coords to a uint16
         posx = posx % 0x10000;
         posy = posy % 0x10000;
+        if (Math.abs(userx - (posx - 0x10000)) < Math.abs(userx - posx)) {
+            posx = posx - 0x10000;
+        }
+        if (Math.abs(userx - (posx + 0x10000)) < Math.abs(userx - posx)) {
+            posx = posx + 0x10000;
+        }
+        if (Math.abs(usery - (posy - 0x10000)) < Math.abs(usery - posy)) {
+            posy = posy - 0x10000;
+        }
+        if (Math.abs(usery - (posy + 0x10000)) < Math.abs(usery - posy)) {
+            posy = posy + 0x10000;
+        }
 
         ang -= userang;
-        posx -= this.user.x;
-        posy -= this.user.y;
+        posx -= userx;
+        posy -= usery;
 
         // apply offset from user, then rotate, then offset from center.
 

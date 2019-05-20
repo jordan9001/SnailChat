@@ -23,7 +23,6 @@ function refitCanvas() {
     canvas.width = window.innerWidth * dpr;
     canvas.height = window.innerHeight * dpr;
     ctx.scale(dpr, dpr);
-    console.log("Scaled canvas to", (window.innerWidth * dpr), "by", (window.innerHeight * dpr));
 }
 
 function u16ToColor(num) {
@@ -37,6 +36,7 @@ function u16ToColor(num) {
     cs += g.toString(16).padStart(2,'0');
     cs += b.toString(16).padStart(2,'0');
 
+    console.log(cs);
     return cs;
 }
 
@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 inchar = String.fromCharCode(chr);
                 color = u16ToColor(clr);
 
-                game.addChar(inchar, x, y, ang, inchar, color);
+                game.addChar(inchar, x, y, ang, color);
                 break;
             case MSG_SNAIL:
                 // x
