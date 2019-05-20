@@ -34,12 +34,12 @@ class SnailGame {
         this.data = [];
 
         // player info
-        this.user = new SnailPlayer(0, 0, 0, 0, 0x0);
-        this.players = [this.user];
+        this.user = null;
+        this.players = [];
 
         // user specific info
         this.lastinputspace = 0;
-        this.rotTo = this.user.ang;
+        this.rotTo = 0;
         this.rotIn = 0;
         this.WanderPos = 0.0;
 
@@ -61,8 +61,15 @@ class SnailGame {
     }
 
     addSnail(id, x, y, ang, color) {
-        this.players.push(new SnailPlayer(id, x, y, ang, color));
+        let newsnail = new SnailPlayer(id, x, y, ang, color);
+        this.players.push(newsnail);
+        if (id == 0) {
+            this.rotTo = ang;
+            this.user = newsnail;
+        }
         this.dirty = true;
+
+        console.log("Got another snail with id", id, "at", x, y);
     }
 
     moveSnail(id, x, y, ang) {
@@ -81,13 +88,15 @@ class SnailGame {
         // race condition here?
         this.players = this.players.filter((player) => player.id != id);
         this.dirty = true;
+
+        console.log("Removed snail", id);
     }
 
     setCtx() {
         // sets default context stuff
         // should only have to be done at the start, and after a resize
-        this.ctx.fillStyle = 'black';
-        this.ctx.strokeStyle = 'white';
+        this.ctx.fillStyle = '#000000';
+        this.ctx.strokeStyle = '#ffffff';
         this.ctx.font = "21px sans-serif";
         this.ctx.textAlign = "left";
         this.ctx.textBaseline = "middle";
@@ -109,12 +118,14 @@ class SnailGame {
         }
 
         this.WanderPos += amt;
-        console.log(this.WanderPos);
 
         return this.WanderPos * this.WanderMax;
     }
 
     rotateStep() {
+        if (this.user == null) {
+            return;
+        }
         // update user.ang based on current ang, rotRate, rotTo, and rotRand()
         let dr = this.rotTo - this.user.ang;
         // adjust so we turn the correct way
@@ -144,6 +155,9 @@ class SnailGame {
     }
 
     insertCharacter(inchar) {
+        if (this.user == null) {
+            return false;
+        }
         if (this.moveSnailCallback === null || this.addLetterCallback === null) {
             return false;
         }
@@ -181,7 +195,19 @@ class SnailGame {
         this.user.x += movdst * Math.cos(this.user.ang);
         this.user.y += movdst * Math.sin(this.user.ang);
 
+        // Wrap around x and y coords to a uint16
+        this.user.x = this.user.x % 0x10000;
+        this.user.y = this.user.y % 0x10000;
+        if (this.user.x < 0) {
+            this.user.x += 0x10000;
+        }
+        if (this.user.y < 0) {
+            this.user.y += 0x10000;
+        }
+
         this.moveSnailCallback(this.user.x, this.user.y, this.user.ang);
+
+        console.log(this.user.x,this.user.y);
 
         this.dirty = true;
 
@@ -189,14 +215,23 @@ class SnailGame {
     }
 
     setTransform(ang, posx, posy) {
-        ang -= this.user.ang;
+        let userang = 0;
+        if (this.user !== null) {
+            userang = this.user.ang;
+        }
+
+        // Wrap around x and y coords to a uint16
+        posx = posx % 0x10000;
+        posy = posy % 0x10000;
+
+        ang -= userang;
         posx -= this.user.x;
         posy -= this.user.y;
 
         // apply offset from user, then rotate, then offset from center.
 
-        let usin = Math.sin(-this.user.ang);
-        let ucos = Math.cos(-this.user.ang);
+        let usin = Math.sin(-userang);
+        let ucos = Math.cos(-userang);
         let sin = Math.sin(ang);
         let cos = Math.cos(ang);
 
@@ -251,6 +286,7 @@ class SnailGame {
         ////////////////////////////
         for (let i=0; i<this.data.length; i++) {
             this.setTransform(this.data[i].ang, this.data[i].x, this.data[i].y);
+            ctx.strokeStyle = "#ffffff";
             ctx.strokeText(this.data[i].c, 0, 0);
             ctx.fillStyle = this.data[i].color;
             ctx.fillText(this.data[i].c, 0, 0);
@@ -259,17 +295,21 @@ class SnailGame {
         ////////////////////////////
         // Draw user's heading & UI
         ////////////////////////////
-        this.setTransform(this.user.ang, this.user.x, this.user.y);
-        ctx.beginPath();
-        let xoff = 10;
-        let yoff = -5;
-        let len = 40;
-        ctx.moveTo(xoff, yoff);
-        ctx.lineTo(
-            Math.cos(this.rotTo - this.user.ang)*len + xoff,
-            Math.sin(this.rotTo - this.user.ang)*len + yoff
-        );
-        ctx.stroke();
+        if (this.user !== null) {
+            this.setTransform(this.user.ang, this.user.x, this.user.y);
+            ctx.beginPath();
+            let xoff = 10;
+            let yoff = -5;
+            let len = 40;
+            ctx.moveTo(xoff, yoff);
+            ctx.lineTo(
+                Math.cos(this.rotTo - this.user.ang)*len + xoff,
+                Math.sin(this.rotTo - this.user.ang)*len + yoff
+            );
+            ctx.strokeStyle = "#000000";
+            ctx.stroke();
+        }
+        
 
         //TODO draw arrows to snails off the edge of view
 
