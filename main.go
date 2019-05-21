@@ -83,6 +83,7 @@ var msgin chan SnailMsg
 var idcounter uint16 = 1
 var charmap []*MsgPoint
 var charmap_mux = &sync.RWMutex{}
+var firsttime = time.Now()
 
 func (m MsgPoint) Pack() []byte {
 	b := make([]byte, MSG_POINT_SZ)
@@ -392,6 +393,8 @@ func catchUp(c *Snail) {
 	snails_mux.RUnlock()
 
 	seensince := time.Now()
+	seenfirst := firsttime
+	
 	foundnotsent := false
 
 	// Send previously sent letters, maybe with some delay
@@ -400,10 +403,14 @@ func catchUp(c *Snail) {
 		// go through the list backwards, until we find one we haven't seensince
 		// might miss a few in the gaps, oh well
 		foundnotsent = false
-		for i := len(charmap) - 1; i >= 0; i-- {
-			if charmap[i].tstmp.Before(seensince) {
+		for i := 0; i < len(charmap); i++ {
+			if charmap[i].tstmp.After(seensince) {
+				// done
+				break
+			}
+			if charmap[i].tstmp.After(seenfirst) {
 				foundnotsent = true
-				seensince = charmap[i].tstmp
+				seenfirst = charmap[i].tstmp
 				// only send if we are still in the mux
 				snails_mux.RLock()
 
@@ -430,7 +437,7 @@ func catchUp(c *Snail) {
 		if !foundnotsent {
 			break
 		}
-		time.Sleep(time.Millisecond * 15)
+		time.Sleep(time.Millisecond * 1)
 	}
 }
 

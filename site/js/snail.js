@@ -64,6 +64,10 @@ class SnailGame {
 
     addSnail(id, x, y, ang, color) {
         let newsnail = new SnailPlayer(id, x, y, ang, color);
+	let that = this;
+	newsnail.img.onload = () => {
+		that.dirty = true;
+	}
         this.players.push(newsnail);
         if (id == 0) {
             this.rotTo = ang;
